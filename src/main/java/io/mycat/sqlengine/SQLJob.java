@@ -105,6 +105,9 @@ public class SQLJob implements ResponseHandler, Runnable {
 		finished = true;
 		jobHandler.finished(dataNodeOrDatabase, failed,errorMsg );
 		if (ctx != null) {
+			if(failed){
+				ctx.setHasError(true);
+			}
 			ctx.onJobFinished(this);
 		}
 	}
@@ -133,15 +136,23 @@ public class SQLJob implements ResponseHandler, Runnable {
 		}
 		
 		
-		conn.release();
+		
 		doFinished(true,errMsg);
+		conn.release();
 	}
 
 	@Override
 	public void okResponse(byte[] ok, BackendConnection conn) {
-		conn.syncAndExcute();
-		conn.release();
-		doFinished(false,null);
+//		conn.syncAndExcute();
+		//modify by zwy  这边 涉及到use database的返回，不能直接释放连接 需要继续处理包
+		boolean executeResponse = conn.syncAndExcute();		
+		if(executeResponse){
+			doFinished(false,null);
+			conn.release();
+		} else {
+			LOGGER.debug("syn response {}" ,conn);
+		}
+		
 	}
 
 	@Override
@@ -155,16 +166,16 @@ public class SQLJob implements ResponseHandler, Runnable {
 	public void rowResponse(byte[] row, BackendConnection conn) {
 		boolean finsihed = jobHandler.onRowData(dataNodeOrDatabase, row);
 		if (finsihed) {
-			conn.close("not needed by user proc");
 			doFinished(false,null);
+			conn.close("not needed by user proc");
 		}
 
 	}
 
 	@Override
 	public void rowEofResponse(byte[] eof, BackendConnection conn) {
-		conn.release();
 		doFinished(false,null);
+		conn.release();
 	}
 
 	@Override

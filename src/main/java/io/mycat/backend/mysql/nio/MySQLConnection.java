@@ -388,7 +388,10 @@ public class MySQLConnection extends BackendAIOConnection {
 		if (!modifiedSQLExecuted && rrn.isModifySQL()) {
 			modifiedSQLExecuted = true;
 		}
-		String xaTXID = sc.getSession2().getXaTXID();
+		String xaTXID = null;
+		if(sc.getSession2().getXaTXID()!=null){
+			xaTXID = sc.getSession2().getXaTXID()+",'"+getSchema()+"'";
+		}
 		synAndDoExecute(xaTXID, rrn, sc.getCharsetIndex(), sc.getTxIsolation(),
 				autocommit);
 	}
@@ -400,9 +403,15 @@ public class MySQLConnection extends BackendAIOConnection {
 
 		boolean conAutoComit = this.autocommit;
 		String conSchema = this.schema;
-		// never executed modify sql,so auto commit
-		boolean expectAutocommit = !modifiedSQLExecuted || isFromSlaveDB()
-				|| clientAutoCommit;
+		boolean strictTxIsolation = MycatServer.getInstance().getConfig().getSystem().isStrictTxIsolation();
+		boolean expectAutocommit = false;
+		// 如果在非自动提交情况下,如果需要严格保证事务级别,则需做下列判断
+		if (strictTxIsolation) {
+			expectAutocommit = isFromSlaveDB() || clientAutoCommit;
+		} else {
+			// never executed modify sql,so auto commit
+			expectAutocommit = (!modifiedSQLExecuted || isFromSlaveDB() || clientAutoCommit);
+		}
 		if (expectAutocommit == false && xaTxID != null && xaStatus == TxState.TX_INITIALIZE_STATE) {
 			//clientTxIsoLation = Isolations.SERIALIZABLE;
 			xaCmd = "XA START " + xaTxID + ';';
@@ -419,7 +428,7 @@ public class MySQLConnection extends BackendAIOConnection {
 		}
 		int txIsoLationSyn = (txIsolation == clientTxIsoLation) ? 0 : 1;
 		int autoCommitSyn = (conAutoComit == expectAutocommit) ? 0 : 1;
-		int synCount = schemaSyn + charsetSyn + txIsoLationSyn + autoCommitSyn;
+		int synCount = schemaSyn + charsetSyn + txIsoLationSyn + autoCommitSyn + (xaCmd!=null?1:0);
 		if (synCount == 0 && this.xaStatus != TxState.TX_STARTED_STATE) {
 			// not need syn connection
 			sendQueryCmd(rrn.getStatement());
@@ -476,7 +485,7 @@ public class MySQLConnection extends BackendAIOConnection {
 	/**
 	 * by wuzh ,execute a query and ignore transaction settings for performance
 	 * 
-	 * @param sql
+	 * @param query
 	 * @throws UnsupportedEncodingException
 	 */
 	public void query(String query) throws UnsupportedEncodingException {

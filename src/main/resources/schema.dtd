@@ -55,6 +55,7 @@
   minCon CDATA #REQUIRED
   name NMTOKEN #REQUIRED
   balance CDATA #REQUIRED
+  maxRetryCount CDATA #REQUIRED
   writeType CDATA #IMPLIED
   switchType  CDATA #IMPLIED
   slaveThreshold  CDATA #IMPLIED
@@ -80,7 +81,7 @@
   host NMTOKEN #REQUIRED
   url CDATA #REQUIRED
   password CDATA #REQUIRED
-  user NMTOKEN #REQUIRED
+  user CDATA #REQUIRED
   weight CDATA #IMPLIED
   usingDecrypt CDATA #IMPLIED>
 

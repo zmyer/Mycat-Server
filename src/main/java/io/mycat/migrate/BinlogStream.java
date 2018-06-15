@@ -27,9 +27,7 @@ import java.util.concurrent.*;
 import static io.mycat.util.dataMigrator.DataMigratorUtil.executeQuery;
 
 public class BinlogStream {
-
     private static Logger logger = LoggerFactory.getLogger(BinlogStream.class);
-
     private final String hostname;
     private final int port;
     private final String username;
@@ -257,6 +255,7 @@ public class BinlogStream {
                     if (groupEventsByTX) {
                         transactionInProgress = false;
                     }
+               
                     break;
                 default:
                     // ignore
@@ -487,12 +486,18 @@ public class BinlogStream {
                     int column=includedColumnsBeforeUpdate.nextSetBit(i);
                     Map<String, Object> coumnMap=   xxx.get(column+1);
                     sb.append(coumnMap.get("COLUMN_NAME"));
-                    sb.append("=");
-                    String dataType= (String) coumnMap.get("DATA_TYPE");
-                    sb.append(convertBinlogValue(key[i],dataType));
+                    Serializable value1 = key[i];
+                    if(value1==null){
+                        sb.append(" is null");
+                    } else {
+                        sb.append("=");
+                        String dataType = (String) coumnMap.get("DATA_TYPE");
+
+                        sb.append(convertBinlogValue(value1, dataType));
+                    }
                     String columnName= (String) coumnMap.get("COLUMN_NAME");
                     if("_slot".equalsIgnoreCase(columnName)){
-                        slot= key[i] instanceof  BigInteger?((BigInteger) key[i]).intValue():((Integer) key[i]);
+                        slot= value1 instanceof  BigInteger?((BigInteger) value1).intValue():((Integer) value1);
                     }
                     if(i!=size-1){
                         sb.append(" and ");
@@ -528,12 +533,18 @@ public class BinlogStream {
                     int column=inculudeColumn.nextSetBit(i);
                     Map<String, Object> coumnMap=   xxx.get(column+1);
                     sb.append(coumnMap.get("COLUMN_NAME"));
-                    sb.append("=");
-                    String dataType= (String) coumnMap.get("DATA_TYPE");
-                    sb.append(convertBinlogValue(value[i],dataType));
+                    Serializable value1 = value[i];
+                    if(value1==null){
+                        sb.append(" is null");
+                    }     else {
+                        sb.append("=");
+                        String dataType = (String) coumnMap.get("DATA_TYPE");
+
+                        sb.append(convertBinlogValue(value1, dataType));
+                    }
                     String columnName= (String) coumnMap.get("COLUMN_NAME");
                     if("_slot".equalsIgnoreCase(columnName)){
-                        slot= value[i] instanceof  BigInteger?((BigInteger) value[i]).intValue():((Integer) value[i]);
+                        slot= value1 instanceof  BigInteger?((BigInteger) value1).intValue():((Integer) value1);
                     }
                     if(i!=size-1){
                         sb.append(" and ");
@@ -551,18 +562,18 @@ public class BinlogStream {
     }
 
     public static void main(String[] args) {
-//        BinlogStream  stream=new BinlogStream("localhost",3301,"czn","MUXmux");
-//        try {
-//            stream.setSlaveID(23511);
-//            stream.setBinglogFile("mysql-bin.000005");
-//            stream.setBinlogPos(4);
-//            stream.connect();
-//
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
+        BinlogStream  stream=new BinlogStream("localhost",3306,"root","123");
+        try {
+            stream.setSlaveID(23511);
+            stream.setBinglogFile("mysql-bin.000028");
+            stream.setBinlogPos(1082);
+            stream.connect();
 
-        String sql="2'aa\"啊啊402";
-        System.out.println(sql.replace("'","\\'"));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+//        String sql="2'aa\"啊啊402";
+//        System.out.println(sql.replace("'","\\'"));
     }
 }

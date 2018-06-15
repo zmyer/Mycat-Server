@@ -58,23 +58,30 @@ public class MultiNodeCoordinator implements ResponseHandler {
 			if (conn != null) {
 				conn.setResponseHandler(this);
 				//process the XA_END XA_PREPARE Command
-				MySQLConnection mysqlCon = (MySQLConnection) conn;
-				String xaTxId = session.getXaTXID();
-				if (mysqlCon.getXaStatus() == TxState.TX_STARTED_STATE)
-				{
-					//recovery Log
-					participantLogEntry[started] = new ParticipantLogEntry(xaTxId,conn.getHost(),0,conn.getSchema(),((MySQLConnection) conn).getXaStatus());
-					String[] cmds = new String[]{"XA END " + xaTxId,
-							"XA PREPARE " + xaTxId};
-					if (LOGGER.isDebugEnabled()) {
-						LOGGER.debug("Start execute the batch cmd : "+ cmds[0] + ";" + cmds[1]+","+
-								"current connection:"+conn.getHost()+":"+conn.getPort());
+				if(conn instanceof MySQLConnection){
+					MySQLConnection mysqlCon = (MySQLConnection) conn;
+					String xaTxId = null;
+					if(session.getXaTXID()!=null){
+						xaTxId = session.getXaTXID() +",'"+ mysqlCon.getSchema()+"'";
 					}
-					mysqlCon.execBatchCmd(cmds);
-				} else
-				{
-					//recovery Log
-					participantLogEntry[started] = new ParticipantLogEntry(xaTxId,conn.getHost(),0,conn.getSchema(),((MySQLConnection) conn).getXaStatus());
+					if (mysqlCon.getXaStatus() == TxState.TX_STARTED_STATE)
+					{
+						//recovery Log
+						participantLogEntry[started] = new ParticipantLogEntry(xaTxId,conn.getHost(),0,conn.getSchema(),((MySQLConnection) conn).getXaStatus());
+						String[] cmds = new String[]{"XA END " + xaTxId,
+								"XA PREPARE " + xaTxId};
+						if (LOGGER.isDebugEnabled()) {
+							LOGGER.debug("Start execute the batch cmd : "+ cmds[0] + ";" + cmds[1]+","+
+									"current connection:"+conn.getHost()+":"+conn.getPort());
+						}
+						mysqlCon.execBatchCmd(cmds);
+					} else
+					{
+						//recovery Log
+						participantLogEntry[started] = new ParticipantLogEntry(xaTxId,conn.getHost(),0,conn.getSchema(),((MySQLConnection) conn).getXaStatus());
+						cmdHandler.sendCommand(session, conn);
+					}
+				}else{
 					cmdHandler.sendCommand(session, conn);
 				}
 				++started;
@@ -122,6 +129,7 @@ public class MultiNodeCoordinator implements ResponseHandler {
 			MySQLConnection mysqlCon = (MySQLConnection) conn;
 			String xaTxId = session.getXaTXID();
 			if (xaTxId != null) {
+				xaTxId += ",'"+mysqlCon.getSchema()+"'";
 				String cmd = "XA COMMIT " + xaTxId;
 				if (LOGGER.isDebugEnabled()) {
 					LOGGER.debug("Replay Commit execute the cmd :" + cmd + ",current host:" +
@@ -161,7 +169,7 @@ public class MultiNodeCoordinator implements ResponseHandler {
 					if (mysqlCon.batchCmdFinished())
 					{
 						String xaTxId = session.getXaTXID();
-						String cmd = "XA COMMIT " + xaTxId;
+						String cmd = "XA COMMIT " + xaTxId +",'"+mysqlCon.getSchema()+"'";
 						if (LOGGER.isDebugEnabled()) {
 							LOGGER.debug("Start execute the cmd :"+cmd+",current host:"+
 									mysqlCon.getHost()+":"+mysqlCon.getPort());
@@ -174,7 +182,7 @@ public class MultiNodeCoordinator implements ResponseHandler {
 								coordinatorLogEntry.participants[i].txState = TxState.TX_PREPARED_STATE;
 							}
 						}
-						inMemoryRepository.put(session.getXaTXID(),coordinatorLogEntry);
+						inMemoryRepository.put(xaTxId,coordinatorLogEntry);
 						fileRepository.writeCheckpoint(inMemoryRepository.getAllCoordinatorLogEntries());
 
 						//send commit
@@ -192,7 +200,7 @@ public class MultiNodeCoordinator implements ResponseHandler {
 							coordinatorLogEntry.participants[i].txState = TxState.TX_COMMITED_STATE;
 						}
 					}
-					inMemoryRepository.put(session.getXaTXID(),coordinatorLogEntry);
+					inMemoryRepository.put(xaTxId,coordinatorLogEntry);
 					fileRepository.writeCheckpoint(inMemoryRepository.getAllCoordinatorLogEntries());
 
 					//XA reset status now
@@ -215,9 +223,16 @@ public class MultiNodeCoordinator implements ResponseHandler {
 			if (cmdHandler.isAutoClearSessionCons()) {
 				session.clearResources(false);
 			}
-
+			/* 1.  事务提交后,xa 事务结束   */
+			if(session.getXaTXID()!=null){
+				session.setXATXEnabled(false);
+			}
+			
+			/* 2. preAcStates 为true,事务结束后,需要设置为true。preAcStates 为ac上一个状态    */
+			if(session.getSource().isPreAcStates()){
+				session.getSource().setAutocommit(true);
+			}
 		}
-
 	}
 
 	@Override

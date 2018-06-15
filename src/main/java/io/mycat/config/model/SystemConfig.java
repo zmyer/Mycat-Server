@@ -62,8 +62,8 @@ public final class SystemConfig {
 	public static final int DEFAULT_POOL_SIZE = 128;// 保持后端数据通道的默认最大值
 	public static final long DEFAULT_IDLE_TIMEOUT = 30 * 60 * 1000L;
 	private static final long DEFAULT_PROCESSOR_CHECK_PERIOD = 1 * 1000L;
-	private static final long DEFAULT_DATANODE_IDLE_CHECK_PERIOD = 5 * 60 * 1000L;
-	private static final long DEFAULT_DATANODE_HEARTBEAT_PERIOD = 10 * 1000L;
+	private static final long DEFAULT_DATANODE_IDLE_CHECK_PERIOD = 5 * 60 * 1000L; //连接空闲检查
+	private static final long DEFAULT_DATANODE_HEARTBEAT_PERIOD = 10 * 1000L;  //心跳检查周期
 	private static final long DEFAULT_CLUSTER_HEARTBEAT_PERIOD = 5 * 1000L;
 	private static final long DEFAULT_CLUSTER_HEARTBEAT_TIMEOUT = 10 * 1000L;
 	private static final int DEFAULT_CLUSTER_HEARTBEAT_RETRY = 10;
@@ -72,7 +72,7 @@ public final class SystemConfig {
 	private static final String DEFAULT_CLUSTER_HEARTBEAT_PASS = "_HEARTBEAT_PASS_";
 	private static final int DEFAULT_PARSER_COMMENT_VERSION = 50148;
 	private static final int DEFAULT_SQL_RECORD_COUNT = 10;
-	private static final boolean DEFAULT_USE_ZK_SWITCH = true;
+	private static final boolean DEFAULT_USE_ZK_SWITCH = false;
 	private int maxStringLiteralLength = 65535;
 	private int frontWriteQueueSize = 2048;
 	private String bindIp = "0.0.0.0";
@@ -152,6 +152,8 @@ public final class SystemConfig {
 	private int mycatNodeId=1;
 	private int useCompression =0;	
 	private int useSqlStat = 1;
+	//子查询中存在关联查询的情况下,检查关联字段中是否有分片字段 .默认 false
+	private boolean subqueryRelationshipCheck = false;
 	
 	// 是否使用HandshakeV10Packet来与client进行通讯, 1:是 , 0:否(使用HandshakePacket)
 	// 使用HandshakeV10Packet为的是兼容高版本的jdbc驱动, 后期稳定下来考虑全部采用HandshakeV10Packet来通讯
@@ -172,6 +174,8 @@ public final class SystemConfig {
 	
 	private long glableTableCheckPeriod;
 
+	// 如果为true的话 严格遵守隔离级别,不会在仅仅只有select语句的时候在事务中切换连接
+	private boolean strictTxIsolation = false;
 	/**
 	 * Mycat 使用 Off Heap For Merge/Order/Group/Limit计算相关参数
 	 */
@@ -224,6 +228,15 @@ public final class SystemConfig {
 	 */
 	private boolean	useZKSwitch=DEFAULT_USE_ZK_SWITCH;
 
+	
+ 	/**
+ 	 * huangyiming add
+	 * 无密码登陆标示, 0:否,1:是,默认为0
+	 */
+	private int nonePasswordLogin = DEFAULT_NONEPASSWORDLOGIN ;
+
+	private final static int DEFAULT_NONEPASSWORDLOGIN = 0;
+	
 	public String getDefaultSqlParser() {
 		return defaultSqlParser;
 	}
@@ -928,6 +941,28 @@ public final class SystemConfig {
 	public void setUseHandshakeV10(int useHandshakeV10) {
 		this.useHandshakeV10 = useHandshakeV10;
 	}
-	
-	
+
+	public int getNonePasswordLogin() {
+		return nonePasswordLogin;
+	}
+
+	public void setNonePasswordLogin(int nonePasswordLogin) {
+		this.nonePasswordLogin = nonePasswordLogin;
+	}
+
+	public boolean isSubqueryRelationshipCheck() {
+		return subqueryRelationshipCheck;
+	}
+
+	public void setSubqueryRelationshipCheck(boolean subqueryRelationshipCheck) {
+		this.subqueryRelationshipCheck = subqueryRelationshipCheck;
+	}
+
+	public boolean isStrictTxIsolation() {
+		return strictTxIsolation;
+	}
+
+	public void setStrictTxIsolation(boolean strictTxIsolation) {
+		this.strictTxIsolation = strictTxIsolation;
+	}
 }
